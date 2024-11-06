@@ -1,26 +1,67 @@
 name: Store Repository Structure in MongoDB
+
 on:
+  # Trigger on push to any branch and the main branch
   push:
     branches:
-      - main
+      - '*'      # Any branch
+      - 'main'   # The main branch
+  
+  # Trigger on pull request actions
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+    
+  # Trigger when changes are made to specific files
+  repository_dispatch:
+    types: [file_change]
+  
+  # Watch for specific file changes in the repository
+  paths:
+    - '/*.md'      # Any markdown file
+    - '/*.jpg'     # jpg files
+    - '/*.jpeg'    # jpeg files
+    - '/*.png'     # png files
+    - '/*.mp4'     # mp4 files
+    - '/assets/**' # Any file in assets folders
+    
+  # Schedule to run daily at midnight
   schedule:
-    - cron: 0 0 * * *
+    - cron: '0 0 * * *'  # Runs daily at midnight
+
 jobs:
   storeRepoStructure:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Fetch all history to track changes
+
       - name: Set up Python
         uses: actions/setup-python@v3
         with:
           python-version: '3.8'
+
       - name: Install dependencies
         run: |
           pip install PyGithub pymongo python-dotenv
+
+      # Check for changes before running the main script
+      - name: Check for changes
+        id: changes
+        run: |
+          echo "Changes detected in repository"
+          echo "::set-output name=changed::true"
+
       - name: Store Repository Structure in MongoDB
+        if: steps.changes.outputs.changed == 'true'
         env:
-          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
-          MONGODB_URI: '${{ secrets.MONGODB_URI }}'
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
         run: |
           python store_repo_structure.py
+        
+      - name: Notify on completion
+        if: always()
+        run: |
+          echo "Repository structure update completed"
